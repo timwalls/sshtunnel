@@ -31,4 +31,63 @@ You will also need to provide an SSH client certificate in `/usr/local/tunnel/ce
 You can do this using either a Volume mount or by extending the Docker image
 and copying a certificate into place.
 
+## I want to do the bad thing on Kubernetes
+Create a Secret with your certificate in, something like this:
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tunnel-secret
+type: Opaque
+stringData:
+  clientcert.pem: |
+    -----BEGIN RSA PRIVATE KEY-----
+    /// INSERT PRIVATE KEY HERE ///
+    -----END RSA PRIVATE KEY-----
+```
+
+Then you can make a deployment with the sshtunnel container that looks
+something like this:
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tunnel
+  labels:
+    app: sshtunnel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sshtunnel
+  template:
+    metadata:
+      labels:
+        app: sshtunnel
+    spec:
+      containers:
+      - name: sshtunnel
+        image: snowgoons/sshtunnel:latest
+        env:
+        - name: REMOTEHOST
+          value: "myremotehost"
+        - name: USER
+          value: "myusername"
+        - name: LISTENPORT
+          value: "1234"
+        - name: HOST
+          value: "mylocalendpoint"
+        - name: PORT
+          value: "1234"
+        volumeMounts:
+        - name: clientcert
+          mountPath: "/usr/local/tunnel/cert"
+          readOnly: true
+      volumes:
+      - name: clientcert
+        secret:
+          secretName: tunnel-secret
+
+```
+
 
